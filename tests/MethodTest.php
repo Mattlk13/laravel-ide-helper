@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Barryvdh\LaravelIdeHelper\Tests;
 
 use Barryvdh\LaravelIdeHelper\Method;
 use Illuminate\Database\Eloquent\Builder;
 use PHPUnit\Framework\TestCase;
 
-class ExampleTest extends TestCase
+class MethodTest extends TestCase
 {
     /**
      * Test that we can actually instantiate the class
@@ -31,22 +33,24 @@ class ExampleTest extends TestCase
 
         $method = new Method($reflectionMethod, 'Example', $reflectionClass);
 
-        $output = '/**
+        $output = <<<'DOC'
+/**
  * 
  *
  * @param string $last
  * @param string $first
  * @param string $middle
  * @static 
- */';
+ */
+DOC;
         $this->assertSame($output, $method->getDocComment(''));
         $this->assertSame('setName', $method->getName());
-        $this->assertSame('\\'.ExampleClass::class, $method->getDeclaringClass());
+        $this->assertSame('\\' . ExampleClass::class, $method->getDeclaringClass());
         $this->assertSame('$last, $first, ...$middle', $method->getParams(true));
         $this->assertSame(['$last', '$first', '...$middle'], $method->getParams(false));
         $this->assertSame('$last, $first = \'Barry\', ...$middle', $method->getParamsWithDefault(true));
         $this->assertSame(['$last', '$first = \'Barry\'', '...$middle'], $method->getParamsWithDefault(false));
-        $this->assertSame(true, $method->shouldReturn());
+        $this->assertTrue($method->shouldReturn());
     }
 
     /**
@@ -59,21 +63,24 @@ class ExampleTest extends TestCase
 
         $method = new Method($reflectionMethod, 'Builder', $reflectionClass);
 
-        $output = '/**
+        $output =  <<<'DOC'
+/**
  * Set the relationships that should be eager loaded.
  *
- * @param mixed $relations
+ * @param string|array $relations
+ * @param string|\Closure|null $callback
  * @return \Illuminate\Database\Eloquent\Builder|static 
  * @static 
- */';
+ */
+DOC;
         $this->assertSame($output, $method->getDocComment(''));
         $this->assertSame('with', $method->getName());
-        $this->assertSame('\\'.Builder::class, $method->getDeclaringClass());
-        $this->assertSame('$relations', $method->getParams(true));
-        $this->assertSame(['$relations'], $method->getParams(false));
-        $this->assertSame('$relations', $method->getParamsWithDefault(true));
-        $this->assertSame(['$relations'], $method->getParamsWithDefault(false));
-        $this->assertSame(true, $method->shouldReturn());
+        $this->assertSame('\\' . Builder::class, $method->getDeclaringClass());
+        $this->assertSame('$relations, $callback', $method->getParams(true));
+        $this->assertSame(['$relations', '$callback'], $method->getParams(false));
+        $this->assertSame('$relations, $callback = null', $method->getParamsWithDefault(true));
+        $this->assertSame(['$relations', '$callback = null'], $method->getParamsWithDefault(false));
+        $this->assertTrue($method->shouldReturn());
     }
 
     /**
@@ -90,6 +97,37 @@ class ExampleTest extends TestCase
         $this->assertSame('$chars = \'$\\\'\\\\\'', $method->getParamsWithDefault(true));
         $this->assertSame(['$chars = \'$\\\'\\\\\''], $method->getParamsWithDefault(false));
     }
+
+    /**
+     * Test the output of a class when using class aliases for it
+     */
+    public function testClassAliases()
+    {
+        $reflectionClass = new \ReflectionClass(ExampleClass::class);
+        $reflectionMethod = $reflectionClass->getMethod('getApplication');
+
+        $method = new Method($reflectionMethod, 'Example', $reflectionClass, null, [], [
+            'Application' => '\\Illuminate\\Foundation\\Application',
+        ]);
+
+        $output = <<<'DOC'
+/**
+ * 
+ *
+ * @return \Illuminate\Foundation\Application 
+ * @static 
+ */
+DOC;
+
+        $this->assertSame($output, $method->getDocComment(''));
+        $this->assertSame('getApplication', $method->getName());
+        $this->assertSame('\\' . ExampleClass::class, $method->getDeclaringClass());
+        $this->assertSame('', $method->getParams(true));
+        $this->assertSame([], $method->getParams(false));
+        $this->assertSame('', $method->getParamsWithDefault(true));
+        $this->assertSame([], $method->getParamsWithDefault(false));
+        $this->assertTrue($method->shouldReturn());
+    }
 }
 
 class ExampleClass
@@ -105,6 +143,14 @@ class ExampleClass
     }
 
     public function setSpecialChars($chars = "\$'\\")
+    {
+        return;
+    }
+
+    /**
+     * @return Application
+     */
+    public function getApplication()
     {
         return;
     }
